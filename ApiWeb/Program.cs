@@ -27,6 +27,9 @@ builder.Services
     {
         options.Password.RequireDigit = true;
         options.Password.RequiredLength = 8;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireNonAlphanumeric = true;
         options.User.RequireUniqueEmail = true;
     })
     .AddRoles<IdentityRole>()
@@ -38,11 +41,8 @@ builder.Services.Configure<CookiePolicyOptions>(options =>
 {
     options.MinimumSameSitePolicy = SameSiteMode.Unspecified;
 
-    options.OnAppendCookie = cookieContext =>
-        CheckSameSite(cookieContext.CookieOptions);
-
-    options.OnDeleteCookie = cookieContext =>
-        CheckSameSite(cookieContext.CookieOptions);
+    options.OnAppendCookie = cookieContext => CheckSameSite(cookieContext.CookieOptions);
+    options.OnDeleteCookie = cookieContext => CheckSameSite(cookieContext.CookieOptions);
 });
 
 static void CheckSameSite(CookieOptions options)
@@ -97,6 +97,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 
 builder.Services.AddDataProtection()
@@ -107,8 +108,8 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapScalarApiReference();
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
@@ -119,5 +120,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+await IdentitySeed.SeedAsync(app.Services);
 
 app.Run();

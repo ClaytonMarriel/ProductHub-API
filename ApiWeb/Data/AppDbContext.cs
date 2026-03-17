@@ -10,6 +10,7 @@ namespace ApiWeb.Data
         public AppDbContent(DbContextOptions<AppDbContent> options) : base(options) { }
 
         public DbSet<ProductModel> Products { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -39,6 +40,23 @@ namespace ApiWeb.Data
                     .IsUnique();
 
                 entity.HasQueryFilter(p => !p.IsDeleted);
+            });
+
+            builder.Entity<RefreshToken>(entity =>
+            {
+                entity.HasKey(r => r.Id);
+
+                entity.Property(r => r.Token)
+                    .HasMaxLength(200)
+                    .IsRequired();
+
+                entity.HasIndex(r => r.Token)
+                    .IsUnique();
+
+                entity.HasOne(r => r.User)
+                    .WithMany()
+                    .HasForeignKey(r => r.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

@@ -1,4 +1,5 @@
-﻿using ApiWeb.DTOs.Products;
+﻿using ApiWeb.Constants;
+using ApiWeb.DTOs.Products;
 using ApiWeb.Services.Products;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,6 +38,7 @@ namespace ApiWeb.Controllers
             return Ok(response);
         }
 
+        [Authorize(Roles = Roles.Admin)]
         [HttpPost]
         public async Task<ActionResult<ProductResponse>> Create(
             [FromBody] CreateProductRequest request,
@@ -51,6 +53,7 @@ namespace ApiWeb.Controllers
             );
         }
 
+        [Authorize(Roles = Roles.Admin)]
         [HttpPut("{id:int}")]
         public async Task<ActionResult<ProductResponse>> Update(
             [FromRoute] int id,
@@ -65,6 +68,7 @@ namespace ApiWeb.Controllers
             return Ok(response);
         }
 
+        [Authorize(Roles = Roles.Admin)]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete([FromRoute] int id, CancellationToken ct)
         {

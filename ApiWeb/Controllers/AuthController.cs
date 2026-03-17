@@ -1,4 +1,5 @@
-﻿using ApiWeb.DTOs.Auth;
+﻿using ApiWeb.Constants;
+using ApiWeb.DTOs.Auth;
 using ApiWeb.Models.Auth;
 using ApiWeb.Services.Auth;
 using Microsoft.AspNetCore.Authentication;
@@ -15,11 +16,16 @@ public class AuthController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly JwtTokenService _jwt;
+    private readonly RefreshTokenService _refreshTokenService;
 
-    public AuthController(UserManager<ApplicationUser> userManager, JwtTokenService jwt)
+    public AuthController(
+        UserManager<ApplicationUser> userManager,
+        JwtTokenService jwt,
+        RefreshTokenService refreshTokenService)
     {
         _userManager = userManager;
         _jwt = jwt;
+        _refreshTokenService = refreshTokenService;
     }
 
     [HttpPost("register")]
@@ -37,8 +43,12 @@ public class AuthController : ControllerBase
         if (!result.Succeeded)
             return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
 
-        var token = await _jwt.CreateTokenAsync(user);
-        return Ok(new { token });
+        await _userManager.AddToRoleAsync(user, Roles.User);
+
+        var accessToken = await _jwt.CreateTokenAsync(user);
+        var refreshToken = await _refreshTokenService.CreateAsync(user);
+
+        return Ok(new AuthResponse(accessToken, refreshToken));
     }
 
     [HttpPost("login")]
@@ -52,8 +62,10 @@ public class AuthController : ControllerBase
         if (!ok)
             return Unauthorized(new { message = "Email ou senha inválidos." });
 
-        var token = await _jwt.CreateTokenAsync(user);
-        return Ok(new { token });
+        var accessToken = await _jwt.CreateTokenAsync(user);
+        var refreshToken = await _refreshTokenService.CreateAsync(user);
+
+        return Ok(new AuthResponse(accessToken, refreshToken));
     }
 
     [Authorize]
@@ -75,6 +87,29 @@ public class AuthController : ControllerBase
             user.Email ?? string.Empty,
             user.FullName
         ));
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh(RefreshTokenRequest request)
+    {
+        var storedToken = await _refreshTokenService.GetValidTokenAsync(request.RefreshToken);
+
+        if (storedToken is null)
+            return Unauthorized(new { message = "Refresh token inválido ou expirado." });
+
+        await _refreshTokenService.RevokeAsync(request.RefreshToken);
+
+        var newAccessToken = await _jwt.CreateTokenAsync(storedToken.User);
+        var newRefreshToken = await _refreshTokenService.CreateAsync(storedToken.User);
+
+        return Ok(new AuthResponse(newAccessToken, newRefreshToken));
+    }
+
+    [HttpPost("revoke")]
+    public async Task<IActionResult> Revoke(RefreshTokenRequest request)
+    {
+        await _refreshTokenService.RevokeAsync(request.RefreshToken);
+        return NoContent();
     }
 
     [HttpGet("google")]
@@ -120,12 +155,16 @@ public class AuthController : ControllerBase
             var create = await _userManager.CreateAsync(user);
             if (!create.Succeeded)
                 return BadRequest(new { errors = create.Errors.Select(e => e.Description) });
+
+            await _userManager.AddToRoleAsync(user, Roles.User);
         }
 
         await HttpContext.SignOutAsync("External");
 
-        var token = await _jwt.CreateTokenAsync(user);
-        return Ok(new { token });
+        var accessToken = await _jwt.CreateTokenAsync(user);
+        var refreshToken = await _refreshTokenService.CreateAsync(user);
+
+        return Ok(new AuthResponse(accessToken, refreshToken));
     }
 
     [HttpGet("google-failed")]
