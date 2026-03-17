@@ -1,11 +1,13 @@
 ﻿using ApiWeb.DTOs.Products;
 using ApiWeb.Services.Products;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApiWeb.Controllers
 {
-    [Route("api/products")]
+    [Authorize]
     [ApiController]
+    [Route("api/products")]
     public class ProductController : ControllerBase
     {
         private readonly IProductService _productService;
