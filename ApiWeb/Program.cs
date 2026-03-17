@@ -22,7 +22,6 @@ builder.Services.AddDbContext<AppDbContent>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
-// Identity (para UserManager, hash de senha, etc.)
 builder.Services
     .AddIdentityCore<ApplicationUser>(options =>
     {
@@ -30,11 +29,11 @@ builder.Services
         options.Password.RequiredLength = 8;
         options.User.RequireUniqueEmail = true;
     })
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDbContent>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-// Cookie policy (ajuda o cookie de correlação do OAuth a funcionar no callback)
 builder.Services.Configure<CookiePolicyOptions>(options =>
 {
     options.MinimumSameSitePolicy = SameSiteMode.Unspecified;
@@ -51,23 +50,20 @@ static void CheckSameSite(CookieOptions options)
     if (options.SameSite == SameSiteMode.None)
         return;
 
-    // Força SameSite=None para fluxos externos
     options.SameSite = SameSiteMode.None;
     options.Secure = true;
 }
 
-// Auth: JWT (API) + Cookie External (OAuth) + Google
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-
-    // ponto chave pro login externo:
     options.DefaultSignInScheme = "External";
 })
 .AddJwtBearer(options =>
 {
     var jwt = builder.Configuration.GetSection("Jwt");
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -90,14 +86,10 @@ builder.Services.AddAuthentication(options =>
     options.SignInScheme = "External";
     options.ClientId = builder.Configuration["GoogleAuth:ClientId"]!;
     options.ClientSecret = builder.Configuration["GoogleAuth:ClientSecret"]!;
-
-    // ✅ callback técnico do middleware
     options.CallbackPath = "/signin-google";
-
     options.Scope.Add("email");
     options.Scope.Add("profile");
     options.SaveTokens = true;
-
     options.CorrelationCookie.SameSite = SameSiteMode.None;
     options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
 });
@@ -119,15 +111,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseMiddleware<GlobalExceptionMiddleware>();
+
 app.UseHttpsRedirection();
-
-// MUITO IMPORTANTE: ativa a política de cookies
 app.UseCookiePolicy();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.MapControllers();
 

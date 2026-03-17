@@ -1,5 +1,5 @@
 ﻿using ApiWeb.Models.Auth;
-using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -10,19 +10,18 @@ namespace ApiWeb.Services.Auth;
 public class JwtTokenService
 {
     private readonly IConfiguration _config;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public JwtTokenService(IConfiguration config) => _config = config;
+    public JwtTokenService(IConfiguration config, UserManager<ApplicationUser> userManager)
+    {
+        _config = config;
+        _userManager = userManager;
+    }
 
-    public string CreateToken(ApplicationUser user)
+    public async Task<string> CreateTokenAsync(ApplicationUser user)
     {
         var jwt = _config.GetSection("Jwt");
         var keyString = jwt["Key"];
-        //var keyString = "a8f3d1c9b7e6k2m4p9r5t8w1x6z3q7v0n4y8u2i6o1p5l9s3b7e2m6k1r4t8x9";
-
-        Console.WriteLine("JWT BYTES = " + Encoding.UTF8.GetByteCount(keyString ?? ""));
-        Console.WriteLine($"JWT KEY: {keyString}");
-        Console.WriteLine($"JWT LENGTH: {keyString?.Length}");
-
 
         if (string.IsNullOrWhiteSpace(keyString))
             throw new Exception("Jwt:Key não configurada.");
@@ -31,12 +30,16 @@ public class JwtTokenService
             throw new Exception("Jwt:Key deve ter pelo menos 32 bytes.");
 
         var claims = new List<Claim>
-    {
-        new(JwtRegisteredClaimNames.Sub, user.Id),
-        new(JwtRegisteredClaimNames.Email, user.Email ?? ""),
-        new(ClaimTypes.NameIdentifier, user.Id),
-        new(ClaimTypes.Name, user.UserName ?? user.Email ?? "")
-    };
+        {
+            new(JwtRegisteredClaimNames.Sub, user.Id),
+            new(JwtRegisteredClaimNames.Email, user.Email ?? ""),
+            new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Name, user.UserName ?? user.Email ?? ""),
+            new("fullName", user.FullName ?? "")
+        };
+
+        var roles = await _userManager.GetRolesAsync(user);
+        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
