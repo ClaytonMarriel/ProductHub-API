@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using ApiWeb.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApiWeb.Middlewares;
@@ -22,26 +23,49 @@ public sealed class GlobalExceptionMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception for request {Method} {Path}", context.Request.Method, context.Request.Path);
+            _logger.LogError(ex, "Unhandled exception for request {Method} {Path}",
+                context.Request.Method,
+                context.Request.Path);
 
-            await HandleExceptionAsync(context);
+            await HandleExceptionAsync(context, ex);
         }
     }
 
-    private static async Task HandleExceptionAsync(HttpContext context)
+    private static async Task HandleExceptionAsync(HttpContext context, Exception ex)
     {
         context.Response.ContentType = "application/problem+json";
-        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-        var problem = new ProblemDetails
+        var problem = ex switch
         {
-            Type = "https://httpstatuses.com/500",
-            Title = "An unexpected error occurred.",
-            Status = StatusCodes.Status500InternalServerError,
-            Detail = "Please contact support if the problem persists.",
-            Instance = context.Request.Path
+            BusinessRuleException bre => new ProblemDetails
+            {
+                Type = "https://httpstatuses.com/400",
+                Title = "Regra de negócio inválida.",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = bre.Message,
+                Instance = context.Request.Path
+            },
+
+            NotFoundException nfe => new ProblemDetails
+            {
+                Type = "https://httpstatuses.com/404",
+                Title = "Recurso não encontrado.",
+                Status = StatusCodes.Status404NotFound,
+                Detail = nfe.Message,
+                Instance = context.Request.Path
+            },
+
+            _ => new ProblemDetails
+            {
+                Type = "https://httpstatuses.com/500",
+                Title = "Ocorreu um erro inesperado.",
+                Status = StatusCodes.Status500InternalServerError,
+                Detail = "Please contact support if the problem persists.",
+                Instance = context.Request.Path
+            }
         };
 
+        context.Response.StatusCode = problem.Status ?? (int)HttpStatusCode.InternalServerError;
         await context.Response.WriteAsJsonAsync(problem);
     }
 }

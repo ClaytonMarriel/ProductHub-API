@@ -1,23 +1,28 @@
 ﻿using ApiWeb.DTOs.Products;
 using ApiWeb.Services.Products;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApiWeb.Controllers
 {
-    [Route("api/products")]
+    [Authorize]
     [ApiController]
+    [Route("api/products")]
     public class ProductController : ControllerBase
     {
         private readonly IProductService _productService;
+
         public ProductController(IProductService productService)
         {
             _productService = productService;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ProductResponse>>> GetAll(CancellationToken ct)
+        public async Task<ActionResult<PagedResponse<ProductResponse>>> GetAll(
+            [FromQuery] ProductQueryParams queryParams,
+            CancellationToken ct)
         {
-            var response = await _productService.GetAllAsync(ct);
+            var response = await _productService.GetAllAsync(queryParams, ct);
             return Ok(response);
         }
 

@@ -1,0 +1,6 @@
+@API_Web___Product_CRUD_.NET__HostAddress = http://localhost:5082
+
+GET {{API_Web___Product_CRUD_.NET__HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
