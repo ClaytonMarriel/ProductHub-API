@@ -30,7 +30,7 @@ Build a functional and well-structured API to strengthen backend fundamentals wi
 - ✅ Update products
 - ✅ Delete products
 - ✅ SQL Server persistence
-- ✅ Swagger endpoint documentation
+- ✅ Scallar endpoint documentation
 
 ## Main Entity
 
